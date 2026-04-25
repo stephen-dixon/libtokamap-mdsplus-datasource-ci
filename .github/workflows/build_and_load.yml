@@ -12,7 +12,7 @@ on:
         default: "main"
 
 env:
-  DATASOURCE_REPO: colleague-org-or-user/mdsplus-datasource
+  DATASOURCE_REPO: stephen-dixon/mdsplus-data_source
   DATASOURCE_PATH: external/mdsplus-datasource
   BUILD_DIR: build
 
@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.DATASOURCE_REPO }}
-          ref: ${{ inputs.datasource_ref || 'main' }}
+          ref: ${{ inputs.datasource_ref || 'review/sdixon' }}
           path: ${{ env.DATASOURCE_PATH }}
           ssh-key: ${{ secrets.DATASOURCE_DEPLOY_KEY }}
 
