@@ -40,6 +40,7 @@ jobs:
           cmake \
           ninja-build \
           g++ \
+          libfmt-dev \
           pkg-config
 
       - name: Install libtokamap
