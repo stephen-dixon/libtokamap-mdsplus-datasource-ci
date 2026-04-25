@@ -1,0 +1,9 @@
+{
+    "metadata": {
+        "experiment": "dummy_mds",
+        "author": "test",
+        "version": "0.1.0"
+    },
+    "partitions": [],
+    "groups": ["test"]
+}

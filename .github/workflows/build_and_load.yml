@@ -158,3 +158,170 @@ jobs:
           plugin="$(find plugin-artifact -type f -name '*.so' | head -n 1)"
           echo "Testing plugin: $plugin"
           ./test_plugin_loader "$plugin"
+
+  integration-test:
+    name: Mapping integration test
+    runs-on: ubuntu-latest
+    needs: build-plugin
+
+    steps:
+      - name: Checkout CI harness
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip 
+
+      - name: Download built plugin
+        uses: actions/download-artifact@v4
+        with:
+          name: mdsplus-datasource-plugin
+          path: plugin-artifact
+
+      - name: Install MDSplus (amd64)
+        run: |
+          set -euxo pipefail
+      
+          curl -L \
+            -o mdsplus.tgz \
+            https://github.com/MDSplus/mdsplus/releases/download/alpha_release-7-158-5/mdsplus_alpha_7.158.5_Ubuntu24_amd64.tgz
+      
+          mkdir -p "$HOME/deps/mdsplus"
+          tar -xzf mdsplus.tgz -C "$HOME/deps/mdsplus" --strip-components=1
+      
+          # Core env vars MDSplus expects
+          echo "MDSPLUS_DIR=$HOME/deps/mdsplus" >> $GITHUB_ENV
+          echo "$HOME/deps/mdsplus/bin" >> $GITHUB_PATH
+      
+          # Runtime linking
+          echo "LD_LIBRARY_PATH=$HOME/deps/mdsplus/lib:$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+      
+          # Python bindings (important for your datasource)
+          echo "PYTHONPATH=$HOME/deps/mdsplus/python:${PYTHONPATH:-}" >> $GITHUB_ENV
+
+
+      - name: Build local MDSplus image
+        run: |
+          cat > Dockerfile.mdsplus <<'EOF'
+          FROM ubuntu:24.04
+      
+          RUN apt-get update && apt-get install -y \
+              curl ca-certificates tar netcat-openbsd \
+              && rm -rf /var/lib/apt/lists/*
+      
+          RUN curl -L -o /tmp/mdsplus.tgz \
+              https://github.com/MDSplus/mdsplus/releases/download/alpha_release-7-158-5/mdsplus_alpha_7.158.5_Ubuntu24_amd64.tgz \
+              && mkdir -p /opt/mdsplus \
+              && tar -xzf /tmp/mdsplus.tgz -C /opt/mdsplus --strip-components=1 \
+              && rm /tmp/mdsplus.tgz
+      
+          ENV MDSPLUS_DIR=/opt/mdsplus
+          ENV PATH=/opt/mdsplus/bin:${PATH}
+          ENV LD_LIBRARY_PATH=/opt/mdsplus/lib
+          ENV PYTHONPATH=/opt/mdsplus/python
+      
+          RUN mkdir -p /trees
+      
+          EXPOSE 8000
+          EOF
+      
+          docker build -f Dockerfile.mdsplus -t local-mdsplus-tools:ci .
+
+      - name: Populate MDSplus test tree
+        run: |
+          set -euxo pipefail
+      
+          docker volume create libtokamap-mdsplus-trees
+      
+          docker run --rm \
+            -v libtokamap-mdsplus-trees:/trees \
+            -v "$PWD:/scripts:ro" \
+            -e test_path=/trees/test \
+            local-mdsplus-tools:ci \
+            sh -lc '
+              if [ ! -f /trees/test/test_model.tree ]; then
+                echo "Populating test tree..."
+                mkdir -p /trees/test
+                cd /trees/test
+                mdstcl < /scripts/init_test_tree.tcl
+              else
+                echo "Tree already exists, skipping population"
+              fi
+            '
+      - name: Start local MDSplus server
+        run: |
+          set -euxo pipefail
+      
+          docker rm -f libtokamap-mdsplus-test || true
+      
+          docker run -d \
+            --name libtokamap-mdsplus-test \
+            -p 8000:8000 \
+            -e test_path=/trees/test \
+            -v libtokamap-mdsplus-trees:/trees \
+            local-mdsplus-tools:ci \
+            sh -lc 'printf "* | nobody\n" > /tmp/mdsip.hosts && exec mdsip -m -p 8000 -h /tmp/mdsip.hosts'
+      
+          for i in {1..30}; do
+            if nc -z localhost 8000; then
+              echo "MDSplus server is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+      
+          docker logs libtokamap-mdsplus-test
+          exit 1
+
+      - name: Create libtokamap test config
+        run: |
+          set -euxo pipefail
+      
+          # plugin="$(find plugin-artifact -type f -name '*.so' | head -n 1)"
+          plugin="$(realpath "$(find plugin-artifact -type f -name '*.so' | head -n 1)")"
+      
+          python - <<'PY'
+          import pathlib
+          import tokamap
+      
+          repo = pathlib.Path.cwd()
+          schemas_dir = pathlib.Path(tokamap.__file__).resolve().parent / "schemas"
+      
+          print(schemas_dir)
+          PY
+      
+          schemas_dir="$(python - <<'PY'
+          import pathlib
+          import tokamap
+          print(pathlib.Path(tokamap.__file__).resolve().parent / "schemas")
+          PY
+          )"
+      
+          cat > libtokamap-test.toml <<EOF
+          mapping_directory = "$PWD/tests/integration/mappings"
+          schemas_directory = "$schemas_dir"
+          trace_enabled = true
+          cache_enabled = false
+          custom_function_libraries = []
+      
+          [data_source_factories]
+          mds_factory = "$plugin"
+      
+          [data_sources.MDSPLUS]
+          factory = "mds_factory"
+          args.host = "127.0.0.1"
+          args.port = 8000
+          args.plugin_name = "MDSPLUS"
+          EOF
+      
+          echo "Generated config:"
+          cat libtokamap-test.toml
+
+      - name: Run integration test
+        run: |
+          export LD_LIBRARY_PATH="$HOME/deps/mdsplus/lib:$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}"
+
+          python3 tests/integration/mapper.py --confg-path "$PWD/libtokamap-test.toml" --mapping "test/ip"
+          python3 tests/integration/mapper.py --confg-path "$PWD/libtokamap-test.toml" --mapping "test/density"
+          python3 tests/integration/mapper.py --confg-path "$PWD/libtokamap-test.toml" --mapping "test/time"

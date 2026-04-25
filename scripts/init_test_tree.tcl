@@ -1,0 +1,11 @@
+edit test/shot=1/new
+
+add node :IP /usage=signal
+add node :DENSITY /usage=signal
+
+put :IP "BUILD_SIGNAL([0,1,2,3,4,5,6,7,8,9], *, [0,1,2,3,4,5,6,7,8,9])"
+put :DENSITY "BUILD_SIGNAL([10,11,12,13,14,15,16,17,18,19], *, [0,1,2,3,4,5,6,7,8,9])"
+
+write
+close
+exit

@@ -1,0 +1,15 @@
+mapping_directory = "/Users/sdixon/uda/iter-mapping-workshop/mdsplus_data_source/examples/mappings"
+schemas_directory = "/Users/sdixon/uda/iter-mapping-workshop/libtokamap/schemas"
+trace_enabled = true
+cache_enabled = false
+custom_function_libraries = [
+]
+
+[data_source_factories]
+mds_factory = "/Users/sdixon/uda/iter-mapping-workshop/mdsplus_data_source/build/libmdsplus_data_source.dylib" 
+
+[data_sources.MDSPLUS]
+factory = "mds_factory"
+args.host = "localhost"
+args.port = 8000
+args.plugin_name = "MDSPLUS"

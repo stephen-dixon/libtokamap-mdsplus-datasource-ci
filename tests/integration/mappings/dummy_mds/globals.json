@@ -1,0 +1,17 @@
+{
+    "COMMENT_1": "Top-level globals.json, relevant variables to all IDSs. Includes all templating substitutions",
+    "COMMENT_2": "DATA_SOURCE_CONFIG defines the mandatory arguments for each plugin request",
+    "DEG2RAD": 0.0174532925199,
+    "UNIT_SF": 1000,
+    "DATA_SOURCE_CONFIG": {
+        "MDSPLUS": {
+            "ARGS": {
+                "source": "{{ shot }}",
+                "host": "localhost",
+                "port": "8000",
+                "template": "(_aux={signal}, {suffix})",
+                "suffix": ""
+            }
+        }
+    }
+}

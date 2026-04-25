@@ -1,0 +1,27 @@
+{
+     "ids_properties/homogeneous_time": 1,
+     "ip": {
+        "map_type": "DATA_SOURCE",
+        "data_source": "MDSPLUS",
+        "args": {
+            "signal": ":IP",
+            "suffix": "value_of(_aux)"
+        }
+    },
+     "density": {
+        "MAP_TYPE": "DATA_SOURCE",
+        "DATA_SOURCE": "MDSPLUS",
+        "ARGS": {
+            "signal": ":DENSITY",
+            "suffix": "value_of(_aux)"
+        }
+    },
+     "time": {
+        "MAP_TYPE": "DATA_SOURCE",
+        "DATA_SOURCE": "MDSPLUS",
+        "ARGS": {
+            "signal": ":DENSITY",
+            "suffix": "dim_of(_aux, 0)"
+        }
+    }
+}
