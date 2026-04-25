@@ -31,7 +31,7 @@ jobs:
           repository: ${{ env.DATASOURCE_REPO }}
           ref: ${{ inputs.datasource_ref || 'review/sdixon' }}
           path: ${{ env.DATASOURCE_PATH }}
-          ssh-key: ${{ secrets.DATASOURCE_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Install build dependencies
         run: |
