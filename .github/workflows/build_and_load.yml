@@ -12,7 +12,7 @@ on:
         default: "main"
 
 env:
-  DATASOURCE_REPO: stephen-dixon/mdsplus-data_source
+  DATASOURCE_REPO: stephen-dixon/mdsplus_data_source
   DATASOURCE_PATH: external/mdsplus-datasource
   BUILD_DIR: build
 
