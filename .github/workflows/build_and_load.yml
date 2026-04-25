@@ -101,8 +101,6 @@ jobs:
 
   loader-smoke:
     name: dlopen + symbol smoke test
-    env:
-      LD_LIBRARY_PATH: ${{ env.HOME }}/deps/mdsplus/lib:${{ env.HOME }}/deps/libtokamap/lib:${{ env.LD_LIBRARY_PATH }}
     runs-on: ubuntu-latest
     needs: build-plugin
 
