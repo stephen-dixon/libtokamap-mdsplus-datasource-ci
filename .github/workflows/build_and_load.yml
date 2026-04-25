@@ -119,6 +119,27 @@ jobs:
           name: mdsplus-datasource-plugin
           path: plugin-artifact
 
+      - name: Install MDSplus (amd64)
+        run: |
+          set -euxo pipefail
+      
+          curl -L \
+            -o mdsplus.tgz \
+            https://github.com/MDSplus/mdsplus/releases/download/alpha_release-7-158-5/mdsplus_alpha_7.158.5_Ubuntu24_amd64.tgz
+      
+          mkdir -p "$HOME/deps/mdsplus"
+          tar -xzf mdsplus.tgz -C "$HOME/deps/mdsplus" --strip-components=1
+      
+          # Core env vars MDSplus expects
+          echo "MDSPLUS_DIR=$HOME/deps/mdsplus" >> $GITHUB_ENV
+          echo "$HOME/deps/mdsplus/bin" >> $GITHUB_PATH
+      
+          # Runtime linking
+          echo "LD_LIBRARY_PATH=$HOME/deps/mdsplus/lib:$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+      
+          # Python bindings (important for your datasource)
+          echo "PYTHONPATH=$HOME/deps/mdsplus/python:${PYTHONPATH:-}" >> $GITHUB_ENV
+
       - name: Build loader test
         run: |
           g++ -std=c++17 -Wall -Wextra -pedantic \
