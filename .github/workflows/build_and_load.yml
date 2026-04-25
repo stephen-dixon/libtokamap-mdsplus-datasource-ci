@@ -101,6 +101,8 @@ jobs:
 
   loader-smoke:
     name: dlopen + symbol smoke test
+    env:
+      export LD_LIBRARY_PATH="$HOME/deps/mdsplus/lib:$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}"
     runs-on: ubuntu-latest
     needs: build-plugin
 
@@ -132,6 +134,7 @@ jobs:
 
       - name: Run loader smoke test
         run: |
+          find "$HOME/deps/mdsplus" -name 'libMdsObjectsCppShr.so*' -print
           plugin="$(find plugin-artifact -type f -name '*.so' | head -n 1)"
           echo "Testing plugin: $plugin"
           ./test_plugin_loader "$plugin"
