@@ -1,0 +1,136 @@
+name: Smoke tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      datasource_ref:
+        description: "Branch/tag/SHA of private datasource repo"
+        required: false
+        default: "main"
+
+env:
+  DATASOURCE_REPO: colleague-org-or-user/mdsplus-datasource
+  DATASOURCE_PATH: external/mdsplus-datasource
+  BUILD_DIR: build
+
+jobs:
+  build-plugin:
+    name: Build plugin
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout CI harness
+        uses: actions/checkout@v4
+
+      - name: Checkout datasource
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.DATASOURCE_REPO }}
+          ref: ${{ inputs.datasource_ref || 'main' }}
+          path: ${{ env.DATASOURCE_PATH }}
+          ssh-key: ${{ secrets.DATASOURCE_DEPLOY_KEY }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          g++ \
+          pkg-config
+
+      - name: Install libtokamap
+        run: |
+          set -euxo pipefail
+
+          curl -L \
+          -o libtokamap.tar.gz \
+          https://github.com/ukaea/libtokamap/releases/download/0.2.3/libtokamap-0.2.3-Linux.tar.gz
+
+          mkdir -p "$HOME/deps/libtokamap"
+          tar -xzf libtokamap.tar.gz -C "$HOME/deps/libtokamap" --strip-components=1
+
+          echo "$HOME/deps/libtokamap/bin" >> "$GITHUB_PATH"
+          echo "CMAKE_PREFIX_PATH=$HOME/deps/libtokamap:${CMAKE_PREFIX_PATH:-}" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+
+      - name: Install MDSplus (amd64)
+        run: |
+          set -euxo pipefail
+      
+          curl -L \
+            -o mdsplus.tgz \
+            https://github.com/MDSplus/mdsplus/releases/download/alpha_release-7-158-5/mdsplus_alpha_7.158.5_Ubuntu24_amd64.tgz
+      
+          mkdir -p "$HOME/deps/mdsplus"
+          tar -xzf mdsplus.tgz -C "$HOME/deps/mdsplus" --strip-components=1
+      
+          # Core env vars MDSplus expects
+          echo "MDSPLUS_DIR=$HOME/deps/mdsplus" >> $GITHUB_ENV
+          echo "$HOME/deps/mdsplus/bin" >> $GITHUB_PATH
+      
+          # Runtime linking
+          echo "LD_LIBRARY_PATH=$HOME/deps/mdsplus/lib:$HOME/deps/libtokamap/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+      
+          # Python bindings (important for your datasource)
+          echo "PYTHONPATH=$HOME/deps/mdsplus/python:${PYTHONPATH:-}" >> $GITHUB_ENV
+
+      - name: Configure
+        run: |
+          cmake -S "$DATASOURCE_PATH" -B "$BUILD_DIR" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build "$BUILD_DIR" --verbose
+
+      - name: Show built files
+        run: find "$BUILD_DIR" -maxdepth 3 -type f \( -name "*.so" -o -name "*.dylib" \) -print
+
+      - name: Upload built plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdsplus-datasource-plugin
+          path: |
+            build/**/*.so
+            build/**/*.dylib
+          if-no-files-found: error
+
+  loader-smoke:
+    name: dlopen + symbol smoke test
+    runs-on: ubuntu-latest
+    needs: build-plugin
+
+    steps:
+      - name: Checkout CI harness
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ cmake ninja-build
+
+      - name: Download built plugin
+        uses: actions/download-artifact@v4
+        with:
+          name: mdsplus-datasource-plugin
+          path: plugin-artifact
+
+      - name: Build loader test
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pedantic \
+            tests/cpp/test_plugin_loader.cpp \
+            -ldl \
+            -o test_plugin_loader
+
+      - name: Diagnose linked libraries
+        run: |
+          find plugin-artifact -type f -name "*.so" -print -exec ldd {} \;
+
+      - name: Run loader smoke test
+        run: |
+          plugin="$(find plugin-artifact -type f -name '*.so' | head -n 1)"
+          echo "Testing plugin: $plugin"
+          ./test_plugin_loader "$plugin"
