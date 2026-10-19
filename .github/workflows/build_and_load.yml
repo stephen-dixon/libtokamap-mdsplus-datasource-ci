@@ -215,6 +215,7 @@ jobs:
       
           RUN apt-get update && apt-get install -y \
               curl ca-certificates tar netcat-openbsd \
+              libreadline8t64 libxml2 \
               && rm -rf /var/lib/apt/lists/*
       
           RUN curl -L -o /tmp/mdsplus.tgz \
@@ -227,6 +228,10 @@ jobs:
           ENV PATH=/opt/mdsplus/bin:${PATH}
           ENV LD_LIBRARY_PATH=/opt/mdsplus/lib
           ENV PYTHONPATH=/opt/mdsplus/python
+          # The tarball has no profile scripts (unlike the RPM/deb installs); without MDS_PATH the
+          # server can't find TDI functions such as TreeOpen (%TDI-E-UNKNOWN_VAR)
+          ENV MDS_PATH=/opt/mdsplus/tdi
+          ENV MDSMSG_PATH=/opt/mdsplus/lib
       
           RUN mkdir -p /trees
       
