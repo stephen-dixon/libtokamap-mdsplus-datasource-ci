@@ -243,15 +243,18 @@ jobs:
       
           docker run --rm \
             -v libtokamap-mdsplus-trees:/trees \
-            -v "$PWD:/scripts:ro" \
+            -v "$PWD/scripts:/scripts:ro" \
             -e test_path=/trees/test \
             local-mdsplus-tools:ci \
             sh -lc '
-              if [ ! -f /trees/test/test_model.tree ]; then
+              set -e
+              if [ ! -f /trees/test/test_001.tree ]; then
                 echo "Populating test tree..."
                 mkdir -p /trees/test
                 cd /trees/test
                 mdstcl < /scripts/init_test_tree.tcl
+                ls -l /trees/test
+                test -f /trees/test/test_001.tree
               else
                 echo "Tree already exists, skipping population"
               fi
