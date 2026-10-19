@@ -1,15 +1,17 @@
-mapping_directory = "/Users/sdixon/uda/iter-mapping-workshop/mdsplus_data_source/examples/mappings"
-schemas_directory = "/Users/sdixon/uda/iter-mapping-workshop/libtokamap/schemas"
+# Local run config: run tests/integration/mapper.py from tests/integration/ with a local MDSplus test
+# server on localhost:8000. Set schemas_directory to the tokamap package schemas, e.g.
+#   python -c 'import tokamap, pathlib; print(pathlib.Path(tokamap.__file__).parent / "schemas")'
+# and the factory path to the built datasource plugin. CI generates its own config.
+mapping_directory = "mappings"
+schemas_directory = "<tokamap package>/schemas"
 trace_enabled = true
 cache_enabled = false
-custom_function_libraries = [
-]
+custom_function_libraries = []
 
 [data_source_factories]
-mds_factory = "/Users/sdixon/uda/iter-mapping-workshop/mdsplus_data_source/build/libmdsplus_data_source.dylib" 
+mdsplus_factory = "../../external/mdsplus-datasource/build/libmdsplus_data_source.so"
 
 [data_sources.MDSPLUS]
-factory = "mds_factory"
+factory = "mdsplus_factory"
 args.host = "localhost"
 args.port = 8000
-args.plugin_name = "MDSPLUS"
